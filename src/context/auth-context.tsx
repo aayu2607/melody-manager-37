@@ -1,11 +1,10 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { User, UserRole } from "@/types";
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string, code: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string, code: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -36,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   };
 
-  const login = async (username: string, password: string, code: string) => {
+  const login = async (username: string, password: string) => {
     setIsLoading(true);
     try {
       // Validate users from localStorage
@@ -63,20 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      const role = validateCode(code);
-      
-      if (!role) {
-        toast.error("Invalid access code. Please try again.");
-        setIsLoading(false);
-        return;
-      }
-      
-      if (role !== existingUser.role) {
-        toast.error(`This user does not have the correct access level.`);
-        setIsLoading(false);
-        return;
-      }
-
       // Successful login
       saveUser(existingUser);
       toast.success(`Welcome back, ${username}!`);

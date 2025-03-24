@@ -9,13 +9,13 @@ import { useAuth } from "@/context/auth-context";
 
 export function LoginForm() {
   const [username, setUsername] = useState("");
-  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(username, code);
+    await login(username, password);
     navigate("/");
   };
 
@@ -24,7 +24,7 @@ export function LoginForm() {
       <CardHeader>
         <CardTitle className="text-2xl">Login</CardTitle>
         <CardDescription>
-          Enter your username and access code to login
+          Enter your username and password to login
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -41,19 +41,16 @@ export function LoginForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="code">Access Code</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
-              id="code"
+              id="password"
               type="password"
-              placeholder="Suyog / Ayush"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
               className="focus-ring"
             />
-            <p className="text-xs text-muted-foreground">
-              Use "Suyog" for User or "Ayush" for Admin
-            </p>
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">
