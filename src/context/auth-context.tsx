@@ -77,8 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const validateCode = (code: string): UserRole | null => {
-    if (code === "Suyog") return "user";
-    if (code === "Ayush") return "admin";
+    if (code === "Ayush") return "user";
+    if (code === "Suyog") return "admin";
     return null;
   };
 
