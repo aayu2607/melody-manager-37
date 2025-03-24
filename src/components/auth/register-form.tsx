@@ -9,13 +9,14 @@ import { useAuth } from "@/context/auth-context";
 
 export function RegisterForm() {
   const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await register(username, code);
+    await register(username, password, code);
     navigate("/");
   };
 
@@ -33,9 +34,21 @@ export function RegisterForm() {
             <Label htmlFor="username">Username</Label>
             <Input
               id="username"
-              placeholder="username"
+              placeholder="Enter your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              required
+              className="focus-ring"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
               className="focus-ring"
             />
@@ -45,15 +58,12 @@ export function RegisterForm() {
             <Input
               id="code"
               type="password"
-              placeholder="Suyog / Ayush"
+              placeholder="Enter access code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               required
               className="focus-ring"
             />
-            <p className="text-xs text-muted-foreground">
-              Use "Suyog" for User or "Ayush" for Admin
-            </p>
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">

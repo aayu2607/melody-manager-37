@@ -5,8 +5,8 @@ import { User, UserRole } from "@/types";
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, code: string) => Promise<void>;
-  register: (username: string, code: string) => Promise<void>;
+  login: (username: string, password: string, code: string) => Promise<void>;
+  register: (username: string, password: string, code: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   };
 
-  const login = async (username: string, code: string) => {
+  const login = async (username: string, password: string, code: string) => {
     setIsLoading(true);
     try {
       // Validate users from localStorage
@@ -57,16 +57,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
+      if (existingUser.password !== password) {
+        toast.error("Incorrect password. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+      
       const role = validateCode(code);
       
       if (!role) {
-        toast.error("Invalid code. Please try again.");
+        toast.error("Invalid access code. Please try again.");
         setIsLoading(false);
         return;
       }
       
       if (role !== existingUser.role) {
-        toast.error(`This user is registered as a ${existingUser.role}, not a ${role}.`);
+        toast.error(`This user does not have the correct access level.`);
         setIsLoading(false);
         return;
       }
@@ -82,13 +88,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (username: string, code: string) => {
+  const register = async (username: string, password: string, code: string) => {
     setIsLoading(true);
     try {
       const role = validateCode(code);
       
       if (!role) {
-        toast.error("Invalid code. Please use 'Suyog' for users or 'Ayush' for admins.");
+        toast.error("Invalid access code. Please try again.");
         setIsLoading(false);
         return;
       }
@@ -107,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const newUser: User = {
         id: crypto.randomUUID(),
         username,
+        password,
         role,
         banned: false,
         createdAt: new Date().toISOString()
@@ -117,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Log in the new user
       saveUser(newUser);
-      toast.success(`Welcome, ${username}! You are registered as a ${role}.`);
+      toast.success(`Welcome, ${username}! Your account has been created.`);
     } catch (error) {
       console.error("Registration error:", error);
       toast.error("Failed to register. Please try again.");
