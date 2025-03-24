@@ -3,11 +3,12 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { User } from "@/types";
 import { useAuth } from "./auth-context";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AdminContextType {
   users: User[];
-  banUser: (userId: string) => Promise<void>;
-  unbanUser: (userId: string) => Promise<void>;
+  banUser: (id: string) => Promise<void>;
+  unbanUser: (id: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -15,90 +16,105 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user, logout } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const loadUsers = () => {
-      const storedUsers = localStorage.getItem("melody-users");
-      if (storedUsers) {
-        setUsers(JSON.parse(storedUsers));
+    if (user && user.role === 'admin') {
+      fetchUsers();
+    }
+  }, [user]);
+
+  const fetchUsers = async () => {
+    if (!user || user.role !== 'admin') {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
       }
+
+      const formattedUsers: User[] = data.map(u => ({
+        id: u.id,
+        username: u.username,
+        role: u.role,
+        banned: u.banned,
+        createdAt: u.created_at
+      }));
+
+      setUsers(formattedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast.error("Failed to load users. Please try again.");
+    } finally {
       setIsLoading(false);
-    };
-
-    loadUsers();
-    
-    // Add event listener for storage changes
-    window.addEventListener("storage", loadUsers);
-    
-    return () => {
-      window.removeEventListener("storage", loadUsers);
-    };
-  }, []);
-
-  const saveUsers = (updatedUsers: User[]) => {
-    localStorage.setItem("melody-users", JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-    
-    // Trigger storage event for cross-tab consistency
-    window.dispatchEvent(new Event("storage"));
+    }
   };
 
-  const banUser = async (userId: string) => {
-    if (!user || user.role !== "admin") {
+  const banUser = async (id: string) => {
+    if (!user || user.role !== 'admin') {
       toast.error("You must be an admin to ban users");
       return;
     }
 
+    setIsLoading(true);
     try {
-      const userToBan = users.find(u => u.id === userId);
-      
-      if (!userToBan) {
-        toast.error("User not found");
-        return;
+      const { error } = await supabase
+        .from('users')
+        .update({ banned: true })
+        .eq('id', id);
+
+      if (error) {
+        throw error;
       }
 
-      if (userToBan.role === "admin") {
-        toast.error("Cannot ban an admin");
-        return;
-      }
-
-      const updatedUsers = users.map(u => 
-        u.id === userId ? { ...u, banned: true } : u
-      );
+      setUsers(users.map(u => 
+        u.id === id ? { ...u, banned: true } : u
+      ));
       
-      saveUsers(updatedUsers);
-      toast.success(`User ${userToBan.username} has been banned`);
+      toast.success("User banned successfully");
     } catch (error) {
-      console.error("Ban user error:", error);
+      console.error("Error banning user:", error);
       toast.error("Failed to ban user. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const unbanUser = async (userId: string) => {
-    if (!user || user.role !== "admin") {
+  const unbanUser = async (id: string) => {
+    if (!user || user.role !== 'admin') {
       toast.error("You must be an admin to unban users");
       return;
     }
 
+    setIsLoading(true);
     try {
-      const userToUnban = users.find(u => u.id === userId);
-      
-      if (!userToUnban) {
-        toast.error("User not found");
-        return;
+      const { error } = await supabase
+        .from('users')
+        .update({ banned: false })
+        .eq('id', id);
+
+      if (error) {
+        throw error;
       }
 
-      const updatedUsers = users.map(u => 
-        u.id === userId ? { ...u, banned: false } : u
-      );
+      setUsers(users.map(u => 
+        u.id === id ? { ...u, banned: false } : u
+      ));
       
-      saveUsers(updatedUsers);
-      toast.success(`User ${userToUnban.username} has been unbanned`);
+      toast.success("User unbanned successfully");
     } catch (error) {
-      console.error("Unban user error:", error);
+      console.error("Error unbanning user:", error);
       toast.error("Failed to unban user. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 

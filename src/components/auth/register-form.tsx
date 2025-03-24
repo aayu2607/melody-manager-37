@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 export function RegisterForm() {
   const [username, setUsername] = useState("");
@@ -16,8 +17,18 @@ export function RegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await register(username, password, code);
-    navigate("/");
+    
+    if (!username.trim() || !password.trim() || !code.trim()) {
+      toast.error("Please fill in all the fields");
+      return;
+    }
+    
+    try {
+      await register(username, password, code);
+      // Navigation will be handled by auth context through onAuthStateChange
+    } catch (error) {
+      console.error("Registration error:", error);
+    }
   };
 
   return (

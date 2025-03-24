@@ -4,7 +4,6 @@ export type UserRole = "user" | "admin";
 export type User = {
   id: string;
   username: string;
-  password: string; // Added password field
   role: UserRole;
   banned: boolean;
   createdAt: string;

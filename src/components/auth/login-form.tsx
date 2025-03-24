@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 export function LoginForm() {
   const [username, setUsername] = useState("");
@@ -15,8 +16,18 @@ export function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(username, password);
-    navigate("/");
+    
+    if (!username.trim() || !password.trim()) {
+      toast.error("Please enter both username and password");
+      return;
+    }
+    
+    try {
+      await login(username, password);
+      // Navigation will be handled by auth context through onAuthStateChange
+    } catch (error) {
+      console.error("Login error:", error);
+    }
   };
 
   return (

@@ -1,6 +1,9 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { User, UserRole } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
   user: User | null;
@@ -14,19 +17,63 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("melody-user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        if (session?.user) {
+          fetchUserProfile(session.user.id);
+        } else {
+          setUser(null);
+        }
+      }
+    );
+
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const saveUser = (user: User) => {
-    localStorage.setItem("melody-user", JSON.stringify(user));
-    setUser(user);
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        const userProfile: User = {
+          id: data.id,
+          username: data.username,
+          role: data.role as UserRole,
+          banned: data.banned,
+          createdAt: data.created_at
+        };
+        setUser(userProfile);
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      toast.error("Failed to load user profile.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const validateCode = (code: string): UserRole | null => {
@@ -38,33 +85,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (username: string, password: string) => {
     setIsLoading(true);
     try {
-      // Validate users from localStorage
-      const usersJSON = localStorage.getItem("melody-users") || "[]";
-      const users: User[] = JSON.parse(usersJSON);
-      
-      const existingUser = users.find(u => u.username === username);
-      
-      if (!existingUser) {
-        toast.error("User not found. Please register first.");
-        setIsLoading(false);
-        return;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: `${username}@melody.app`, // Using username as email
+        password: password
+      });
+
+      if (error) {
+        toast.error(error.message);
+      } else if (data.user) {
+        toast.success(`Welcome back, ${username}!`);
       }
-      
-      if (existingUser.banned) {
-        toast.error("Your account has been banned. Please contact an administrator.");
-        setIsLoading(false);
-        return;
-      }
-      
-      if (existingUser.password !== password) {
-        toast.error("Incorrect password. Please try again.");
-        setIsLoading(false);
-        return;
-      }
-      
-      // Successful login
-      saveUser(existingUser);
-      toast.success(`Welcome back, ${username}!`);
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Failed to login. Please try again.");
@@ -84,32 +114,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Check if username exists
-      const usersJSON = localStorage.getItem("melody-users") || "[]";
-      const users: User[] = JSON.parse(usersJSON);
-      
-      if (users.some(u => u.username === username)) {
-        toast.error("Username already exists. Please choose another one.");
-        setIsLoading(false);
-        return;
+      const { data, error } = await supabase.auth.signUp({
+        email: `${username}@melody.app`, // Using username as email
+        password: password,
+        options: {
+          data: {
+            username: username,
+            role: role
+          }
+        }
+      });
+
+      if (error) {
+        toast.error(error.message);
+      } else if (data.user) {
+        toast.success(`Welcome, ${username}! Your account has been created.`);
       }
-
-      // Create new user
-      const newUser: User = {
-        id: crypto.randomUUID(),
-        username,
-        password,
-        role,
-        banned: false,
-        createdAt: new Date().toISOString()
-      };
-
-      // Save to localStorage
-      localStorage.setItem("melody-users", JSON.stringify([...users, newUser]));
-      
-      // Log in the new user
-      saveUser(newUser);
-      toast.success(`Welcome, ${username}! Your account has been created.`);
     } catch (error) {
       console.error("Registration error:", error);
       toast.error("Failed to register. Please try again.");
@@ -118,10 +138,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem("melody-user");
-    setUser(null);
-    toast.success("Logged out successfully");
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to logout");
+    }
   };
 
   return (
